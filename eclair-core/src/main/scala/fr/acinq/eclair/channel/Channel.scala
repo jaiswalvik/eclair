@@ -604,7 +604,7 @@ class Channel(val nodeParams: NodeParams, wallet: EclairWallet, remoteNodeId: Pu
           d.commitments.remoteChanges.signed.collect {
             case htlc: UpdateAddHtlc =>
               log.debug(s"relaying $htlc")
-              relayer ! ForwardAdd(htlc)
+              relayer ! ForwardAdd(UpdateAddHtlcWithProof(htlc, d.commitments.htlcProof(htlc.paymentHash)))
           }
           log.debug(s"received a new rev, spec:\n${Commitments.specs2String(commitments1)}")
           if (Commitments.localHasChanges(commitments1) && d.commitments.remoteNextCommitInfo.left.map(_.reSignAsap) == Left(true)) {

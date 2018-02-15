@@ -18,7 +18,10 @@ sealed trait Origin
 case class Local(sender: Option[ActorRef]) extends Origin // we don't persist reference to local actors
 case class Relayed(originChannelId: BinaryData, originHtlcId: Long, amountMsatIn: Long, amountMsatOut: Long) extends Origin
 
-case class ForwardAdd(add: UpdateAddHtlc)
+case class ForwardAdd(add: UpdateAddHtlcWithProof)
+object ForwardAdd {
+  def apply(add: UpdateAddHtlc): ForwardAdd = ForwardAdd(UpdateAddHtlcWithProof(add, None))
+}
 case class ForwardFulfill(fulfill: UpdateFulfillHtlc, to: Origin)
 case class ForwardFail(fail: UpdateFailHtlc, to: Origin)
 case class ForwardFailMalformed(fail: UpdateFailMalformedHtlc, to: Origin)

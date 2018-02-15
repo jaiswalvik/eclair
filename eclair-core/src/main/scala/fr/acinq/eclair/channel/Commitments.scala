@@ -23,6 +23,21 @@ case class PublishableTxs(commitTx: CommitTx, htlcTxsAndSigs: List[HtlcTxAndSigs
 case class LocalCommit(index: Long, spec: CommitmentSpec, publishableTxs: PublishableTxs)
 case class RemoteCommit(index: Long, spec: CommitmentSpec, txid: BinaryData, remotePerCommitmentPoint: Point)
 case class WaitingForRevocation(nextRemoteCommit: RemoteCommit, sent: CommitSig, sentAfterLocalCommitIndex: Long, reSignAsap: Boolean = false)
+case class HtlcProof(channelNumber: Long, commitIndex: Long, commitTx: CommitTx, htlcSuccessTx: HtlcSuccessTx, remoteSig: BinaryData, remoteHtlcPoint: Point) {
+  def checkProof(keyManager: KeyManager) : Boolean = {
+      val htlcKey = Generators.derivePubKey(remoteHtlcPoint, keyManager.commitmentPoint(channelNumber, commitIndex))
+      val check = Transactions.checkSig(htlcSuccessTx, remoteSig, htlcKey)
+      check
+  }
+}
+case class UpdateAddHtlcWithProof(add: UpdateAddHtlc, proof: Option[HtlcProof]) {
+  def channelId = add.channelId
+  def id = add.id
+  def paymentHash = add.paymentHash
+  def amountMsat = add.amountMsat
+  def onionRoutingPacket = add.onionRoutingPacket
+  def expiry = add.expiry
+}
 // @formatter:on
 
 /**
@@ -54,6 +69,13 @@ case class Commitments(localParams: LocalParams, remoteParams: RemoteParams,
   def addRemoteProposal(proposal: UpdateMessage): Commitments = Commitments.addRemoteProposal(this, proposal)
 
   def announceChannel: Boolean = (channelFlags & 0x01) != 0
+
+  def htlcProof(paymentHash: BinaryData): Option[HtlcProof] = {
+    val proof = localCommit.publishableTxs.htlcTxsAndSigs.collect {
+      case HtlcTxAndSigs(htx@HtlcSuccessTx(input, tx, hash), localSig, remoteSig) if hash == paymentHash => HtlcProof(localParams.channelNumber, localCommit.index, localCommit.publishableTxs.commitTx, htx, remoteSig, remoteParams.htlcBasepoint)
+    }
+    proof.headOption
+  }
 }
 
 object Commitments {
